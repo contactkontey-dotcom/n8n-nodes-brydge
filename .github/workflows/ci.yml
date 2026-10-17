@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Windows as well as Linux: releases are cut from a range of machines, and
+    # on Windows npm, npx and every node_modules/.bin tool are .cmd files and
+    # files check out with CRLF line endings.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # The package the scan reads is the one `npm publish` would build and
+      # pack — dist only, no runtime dependencies. Dry-run it so a change that
+      # would ship the wrong files, or pull in a dependency, fails here.
+      - run: npm pack --dry-run

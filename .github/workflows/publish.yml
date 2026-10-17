@@ -1,0 +1,105 @@
+# Publishes n8n-nodes-brydge to npm on a version tag, FROM GITHUB ACTIONS,
+# WITH AN NPM PROVENANCE STATEMENT.
+#
+# ─── WHY THIS EXISTS ────────────────────────────────────────────────────────
+# Since 1 May 2026 n8n only verifies community nodes published from CI with
+# provenance; a node published by hand from a laptop — as 0.1.0 was — is
+# refused ("Package was not published with npm provenance"). Provenance is a
+# signed attestation that lets anyone verify this package was built by THIS
+# workflow, from THIS repository and commit. The next provenance-backed
+# release is 0.1.1: an npm version is immutable, so 0.1.0 cannot be given
+# provenance after the fact.
+#
+# ─── WHY A HAND-WRITTEN WORKFLOW, NOT @n8n/node-cli's `n8n-node release` ─────
+# n8n's starter publishes via `n8n-node release` (which needs
+# @n8n/node-cli >= 0.23.0). The verification SCAN reads the published
+# package's provenance, not the workflow that produced it, and it also
+# requires the package to carry NO external runtime dependencies. This node
+# already meets that: `tsup` bundles brydge-core into `dist/`, so the tarball
+# has no runtime deps. Publishing that build directly with `--provenance`
+# satisfies the scan without a build-tool rewrite that could reintroduce a
+# runtime dependency on brydge-core. (A node is verified this way in the wild.)
+#
+# ─── ONE-TIME SETUP — OIDC TRUSTED PUBLISHING (recommended, no stored secret) ─
+#   1. npmjs.com → the `n8n-nodes-brydge` package → Settings →
+#      "Publishing access" → "Trusted Publishers" → "Add a publisher".
+#   2. Choose GitHub Actions and enter EXACTLY:
+#        Repository owner: contactkontey-dotcom
+#        Repository name:  n8n-nodes-brydge
+#        Workflow name:    publish.yml      ← must match this file's name
+#        Environment:      (leave blank)
+#   3. Leave the NPM_TOKEN repository secret UNSET. GitHub's OIDC token is
+#      exchanged for npm credentials at publish time — no secret is stored.
+#
+#   Fallback — automation token: npmjs.com → Access Tokens → Generate →
+#   Granular Access Token, scoped to publish this package with read/write.
+#   Then in GitHub: the n8n-nodes-brydge repo → Settings → Secrets and
+#   variables → Actions → New repository secret, name it NPM_TOKEN.
+#   Provenance works with either option.
+#
+# ─── RELEASE ────────────────────────────────────────────────────────────────
+#   Bump "version" in package.json, commit, then push a matching tag:
+#     git tag v0.1.1 && git push origin v0.1.1
+#   The tag triggers this workflow, which republishes nothing it has already
+#   seen (npm refuses a duplicate version) and publishes the new one with
+#   provenance.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Mint the OIDC token the provenance attestation is signed with. Without
+      # it, `npm publish --provenance` fails.
+      id-token: write
+      # Least privilege: this job only reads the checkout.
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      # OIDC trusted publishing needs npm >= 11.5.1; the LTS Node ships an
+      # older npm. Harmless on the token path (which needs only >= 9.5 for
+      # --provenance), so it runs unconditionally.
+      - name: Use an npm new enough for trusted publishing
+        run: npm install -g npm@latest
+
+      # The tag must name the version in package.json, or the wrong version
+      # would ship under this tag. Fail loudly before publishing anything.
+      - name: Tag matches package version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} (${TAG}) does not match package.json version ${PKG}"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      - name: Publish with provenance
+        # No NPM_TOKEN set → npm uses the OIDC exchange (trusted publishing).
+        # NPM_TOKEN set → it is written to .npmrc first and used instead.
+        # Either way --provenance signs the attestation with the id-token above.
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          npm publish --provenance --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

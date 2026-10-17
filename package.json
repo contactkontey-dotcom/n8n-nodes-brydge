@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-brydge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community node for BRYDGE: ask before an agent acts, then check against the destination's own records whether the work happened.",
   "keywords": [
     "n8n-community-node-package",

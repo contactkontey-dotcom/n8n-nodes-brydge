@@ -20,4 +20,12 @@ export default defineConfig({
   clean: true,
   external: ["n8n-workflow"],
   noExternal: ["brydge-core"],
+  /*
+   * n8n community nodes may not read the `process` global, and the scanner
+   * rejects any that does. `brydge-core` reads `process.env` only as a fallback
+   * when no key or URL is passed — which the n8n node always passes from the
+   * credential. Fold `process` to `undefined` so that dead branch, and the
+   * global with it, never reaches the bundle.
+   */
+  define: { process: "undefined" },
 });

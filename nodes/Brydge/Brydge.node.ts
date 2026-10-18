@@ -1,20 +1,17 @@
 import {
+  NodeApiError,
   NodeOperationError,
   type IDataObject,
   type IExecuteFunctions,
   type INodeExecutionData,
   type INodeType,
   type INodeTypeDescription,
-  type NodeConnectionType,
+  type JsonObject,
 } from "n8n-workflow";
-
-/* "main" is the ordinary data connection. Written as the literal because this
- * n8n-workflow version exposes NodeConnectionType as a type, not a value. */
-const MAIN = "main" as NodeConnectionType;
 import { BrydgeClient, BrydgeError, type Facts, type Outcome } from "brydge-core";
 
 /** This package's version, sent to BRYDGE as the integration so its logs can tell the node apart. Kept equal to package.json by a test. */
-const PACKAGE_VERSION = "0.1.1";
+const PACKAGE_VERSION = "0.1.2";
 
 /*
  * ═══════════════════════════════════════════════════════════════════════════
@@ -60,14 +57,14 @@ export class Brydge implements INodeType {
   description: INodeTypeDescription = {
     displayName: "BRYDGE",
     name: "brydge",
-    icon: "file:brydge.svg",
+    icon: { light: "file:brydge.svg", dark: "file:brydge.dark.svg" },
     group: ["transform"],
     version: 1,
     subtitle: '={{ $parameter["operation"] }}',
     description: "Ask BRYDGE before an agent acts, then check against the destination's own records whether the work happened.",
     defaults: { name: "BRYDGE" },
-    inputs: [MAIN],
-    outputs: [MAIN],
+    inputs: ['main'],
+    outputs: ['main'],
     usableAsTool: true,
     credentials: [{ name: "brydgeApi", required: true }],
     properties: [
@@ -78,34 +75,34 @@ export class Brydge implements INodeType {
         noDataExpression: true,
         default: "supervise",
         options: [
-          { name: "Supervise", value: "supervise", action: "Ask before acting", description: "Ask BRYDGE whether the agent may take an action, before it does" },
-          { name: "Report Outcome", value: "report", action: "Report what happened", description: "Tell BRYDGE what the agent believes happened" },
-          { name: "Verify", value: "verify", action: "Check the records now", description: "Read the destination's records now and say whether the work happened" },
           { name: "Get Finding", value: "finding", action: "Get what BRYDGE found so far", description: "What BRYDGE has found so far, without reading the records again" },
           { name: "Get Headroom", value: "headroom", action: "Get how much the agent may do", description: "How much the agent may do without a person in any 24 hours" },
+          { name: "Report Outcome", value: "report", action: "Report what happened", description: "Tell BRYDGE what the agent believes happened" },
+          { name: "Supervise", value: "supervise", action: "Ask before acting", description: "Ask BRYDGE whether the agent may take an action, before it does" },
+          { name: "Verify", value: "verify", action: "Check the records now", description: "Read the destination's records now and say whether the work happened" },
         ],
       },
 
       /* ---- Supervise ------------------------------------------------- */
       { displayName: "Actor", name: "actor", type: "string", default: "", required: true, description: "The agent asking, as BRYDGE knows it, such as agent:refund-ops", displayOptions: { show: { operation: ["supervise", "headroom"] } } },
-      { displayName: "Action", name: "action", type: "string", default: "", required: true, description: "The kind of work, such as refund. Must have a declared value in BRYDGE", displayOptions: { show: { operation: ["supervise", "headroom"] } } },
+      { displayName: "Action", name: "action", type: "string", default: "", required: true, description: 'The kind of work, such as refund. Must have a declared value in BRYDGE.', displayOptions: { show: { operation: ["supervise", "headroom"] } } },
       { displayName: "Target", name: "target", type: "string", default: "", required: true, description: "What the work acts on: the payment, order or ticket", displayOptions: { show: { operation: ["supervise"] } } },
       { displayName: "Facts (JSON)", name: "facts", type: "json", default: "{}", description: "What BRYDGE's mandates judge the action by, such as {\"amount\": 4200}", displayOptions: { show: { operation: ["supervise"] } } },
-      { displayName: "Idempotency Key", name: "idempotencyKey", type: "string", default: "", required: true, description: "A name for this one intended action, such as refund:ch_123. Send the same value to retry, or to get a person's answer once they have given it; never reuse it for a different action", displayOptions: { show: { operation: ["supervise"] } } },
+      { displayName: "Idempotency Key", name: "idempotencyKey", type: "string", default: "", required: true, description: 'A name for this one intended action, such as refund:ch_123. Send the same value to retry, or to get a person\'s answer once they have given it; never reuse it for a different action.', displayOptions: { show: { operation: ["supervise"] } } },
 
       /* ---- Report / Verify / Finding --------------------------------- */
-      { displayName: "Authorization", name: "authorization", type: "string", default: "", required: true, description: "The authorization id BRYDGE returned from Supervise", displayOptions: { show: { operation: ["report", "verify", "finding"] } } },
+      { displayName: "Authorization", name: "authorization", type: "string", default: "", required: true, description: 'The authorization ID BRYDGE returned from Supervise', displayOptions: { show: { operation: ["report", "verify", "finding"] } } },
       {
         displayName: "Outcome",
         name: "outcome",
         type: "options",
         default: "SUCCEEDED",
-        description: "What the agent believes happened. BRYDGE keeps it beside the finding; it never decides it",
+        description: 'What the agent believes happened. BRYDGE keeps it beside the finding; it never decides it.',
         options: [
-          { name: "Succeeded", value: "SUCCEEDED" },
+          { name: "Corrected", value: "CORRECTED" },
           { name: "Failed", value: "FAILED" },
           { name: "Reversed", value: "REVERSED" },
-          { name: "Corrected", value: "CORRECTED" },
+          { name: "Succeeded", value: "SUCCEEDED" },
           { name: "Wrongly Allowed", value: "WRONGLY_ALLOWED" },
           { name: "Wrongly Refused", value: "WRONGLY_REFUSED" },
         ],
@@ -168,7 +165,20 @@ export class Brydge implements INodeType {
           });
           continue;
         }
-        throw error;
+        /*
+         * Otherwise surface the fault as a thrown n8n error. Our own input
+         * checks already throw NodeOperationError — rethrow those untouched. A
+         * BRYDGE fault becomes a NodeApiError carrying BRYDGE's own message,
+         * HTTP status and reason, so the run's error shows the real cause.
+         */
+        if (error instanceof NodeOperationError || error instanceof NodeApiError) throw error;
+        const brydge = BrydgeError.find(error);
+        throw new NodeApiError(this.getNode(), (error ?? {}) as JsonObject, {
+          itemIndex: i,
+          message: brydge?.message,
+          httpCode: brydge?.status != null ? String(brydge.status) : undefined,
+          description: brydge?.reason ?? undefined,
+        });
       }
     }
 

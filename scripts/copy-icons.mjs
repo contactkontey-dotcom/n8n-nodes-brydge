@@ -2,7 +2,10 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const icons = [["nodes/Brydge/brydge.svg", "dist/nodes/Brydge/brydge.svg"]];
+const icons = [
+  ["nodes/Brydge/brydge.svg", "dist/nodes/Brydge/brydge.svg"],
+  ["nodes/Brydge/brydge.dark.svg", "dist/nodes/Brydge/brydge.dark.svg"],
+];
 for (const [from, to] of icons) {
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(from, to);

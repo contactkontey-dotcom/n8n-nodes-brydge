@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-brydge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "n8n community node for BRYDGE: ask before an agent acts, then check against the destination's own records whether the work happened.",
   "keywords": [
     "n8n-community-node-package",
@@ -19,7 +19,10 @@
     "url": "git+https://github.com/contactkontey-dotcom/n8n-nodes-brydge.git"
   },
   "license": "MIT",
-  "author": "BRYDGE",
+  "author": {
+    "name": "BRYDGE",
+    "email": "contact.kontey@gmail.com"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -27,9 +30,10 @@
   "scripts": {
     "build": "tsup && node scripts/copy-icons.mjs",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint -c .eslintrc.json \"credentials/**/*.ts\" \"nodes/**/*.ts\" package.json",
     "test": "vitest run tests/unit",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run typecheck && npm test"
+    "prepublishOnly": "npm run typecheck && npm run lint && npm test"
   },
   "n8n": {
     "n8nNodesApiVersion": 1,
@@ -47,11 +51,15 @@
     "n8n-workflow": "*"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@typescript-eslint/parser": "^8.46.0",
     "brydge-core": "^0.1.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-n8n-nodes-base": "^2.0.0",
+    "jsonc-eslint-parser": "^2.4.0",
     "n8n-workflow": "^2.16.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.2",
-    "@types/node": "^22.20.4"
+    "vitest": "^5.0.2"
   }
 }

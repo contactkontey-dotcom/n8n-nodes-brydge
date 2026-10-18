@@ -1,0 +1,27 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
+  "ignorePatterns": ["dist/**", "node_modules/**", "tests/**", "scripts/**", "*.js", "*.mjs"],
+  "overrides": [
+    {
+      "files": ["package.json"],
+      "parser": "jsonc-eslint-parser",
+      "plugins": ["n8n-nodes-base"],
+      "extends": ["plugin:n8n-nodes-base/community"]
+    },
+    {
+      "files": ["credentials/**/*.ts"],
+      "plugins": ["n8n-nodes-base"],
+      "extends": ["plugin:n8n-nodes-base/credentials"],
+      "rules": {
+        "n8n-nodes-base/cred-class-field-documentation-url-miscased": "off"
+      }
+    },
+    {
+      "files": ["nodes/**/*.ts"],
+      "plugins": ["n8n-nodes-base"],
+      "extends": ["plugin:n8n-nodes-base/nodes"]
+    }
+  ]
+}

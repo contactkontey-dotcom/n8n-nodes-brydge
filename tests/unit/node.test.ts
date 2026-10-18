@@ -55,7 +55,8 @@ describe("the BRYDGE node", () => {
     expect(d.name).toBe("brydge");
     expect(d.credentials).toEqual([{ name: "brydgeApi", required: true }]);
     const op = d.properties.find((p) => p.name === "operation");
-    expect((op?.options as Array<{ value: string }>).map((o) => o.value)).toEqual(["supervise", "report", "verify", "finding", "headroom"]);
+    // Options are ordered alphabetically by display name, as n8n's node linter requires.
+    expect((op?.options as Array<{ value: string }>).map((o) => o.value)).toEqual(["finding", "headroom", "report", "supervise", "verify"]);
     expect(new BrydgeApi().name).toBe("brydgeApi");
   });
 

@@ -1,4 +1,10 @@
-import type { ICredentialType, INodeProperties, Icon } from "n8n-workflow";
+import type {
+  IAuthenticateGeneric,
+  ICredentialTestRequest,
+  ICredentialType,
+  Icon,
+  INodeProperties,
+} from "n8n-workflow";
 
 /*
  * ═══════════════════════════════════════════════════════════════════════════
@@ -15,7 +21,10 @@ export class BrydgeApi implements ICredentialType {
   name = "brydgeApi";
   displayName = "BRYDGE API";
   documentationUrl = "https://www.brydge-ai.com";
-  icon: Icon = "file:../nodes/Brydge/brydge.svg";
+  icon: Icon = {
+    light: "file:../nodes/Brydge/brydge.svg",
+    dark: "file:../nodes/Brydge/brydge.dark.svg",
+  };
 
   properties: INodeProperties[] = [
     {
@@ -35,4 +44,32 @@ export class BrydgeApi implements ICredentialType {
       description: "Where BRYDGE runs. Leave the default for BRYDGE's hosted service.",
     },
   ];
+
+  /*
+   * How the key rides on a request MADE WITH THIS CREDENTIAL — as a bearer
+   * token, the one BRYDGE reads from `Authorization`. The node itself calls
+   * BRYDGE through `brydge-core` and does not go through here; this is what the
+   * `test` below (and any n8n HTTP request using this credential) authenticates
+   * with.
+   */
+  authenticate: IAuthenticateGeneric = {
+    type: "generic",
+    properties: {
+      headers: {
+        Authorization: "=Bearer {{$credentials.apiKey}}",
+      },
+    },
+  };
+
+  /*
+   * Lets n8n's "Test" button check the key: a GET to a read-only,
+   * workspace-scoped BRYDGE endpoint that needs no parameters. A valid key
+   * returns 200; a wrong one, 401.
+   */
+  test: ICredentialTestRequest = {
+    request: {
+      baseURL: "={{$credentials.baseUrl}}",
+      url: "/api/autonomy",
+    },
+  };
 }

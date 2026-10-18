@@ -41,15 +41,18 @@ Published standalone, this package depends on `brydge-core` from npm instead of 
 
 ## Publishing and submitting
 
-A community node is an npm package n8n installs by name.
+A community node is an npm package n8n installs by name. Since 1 May 2026 n8n only verifies nodes **published from GitHub Actions with npm provenance** — a node published by hand from a laptop is refused. So this package publishes from CI.
 
-1. **Publish to npm** (nothing is published until you do):
+1. **Publish to npm from CI, with provenance.** The release runs in the public [`n8n-nodes-brydge`](https://github.com/contactkontey-dotcom/n8n-nodes-brydge) repository, where `.github/workflows/publish.yml` publishes with `npm publish --provenance` on a version tag. One-time, set up OIDC trusted publishing on the npm package (the exact fields are in the header of `publish.yml`); then release by tagging:
 
    ```bash
-   npm publish
+   # bump "version" in package.json, commit, then:
+   git tag v0.1.1 && git push origin v0.1.1
    ```
 
-   `prepublishOnly` runs the typecheck and tests, and `prepack` builds `dist`, so a broken build never ships. The package declares `n8n-community-node-package` in its keywords and `n8n-workflow` as a peer dependency, with no runtime dependencies of its own.
+   The tag triggers the workflow. `prepublishOnly` runs the typecheck and tests and `prepack` builds `dist`, so a broken build never ships. The package declares `n8n-community-node-package` in its keywords and `n8n-workflow` as a peer dependency, with no runtime dependencies of its own — `brydge-core` is bundled into `dist`, so the published tarball carries nothing to resolve (and nothing separate to attest).
+
+   An npm version is immutable: `0.1.0` was published by hand without provenance and cannot be given it after the fact, so the first verified release is `0.1.1`.
 
 2. **Install it in any n8n** via Settings → Community Nodes → `n8n-nodes-brydge`.
 

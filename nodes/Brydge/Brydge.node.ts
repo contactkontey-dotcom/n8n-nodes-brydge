@@ -12,7 +12,7 @@ import {
 import { BrydgeClient, BrydgeError, type Facts, type Outcome } from "brydge-core";
 
 /** This package's version, sent to BRYDGE as the integration so its logs can tell the node apart. Kept equal to package.json by a test. */
-const PACKAGE_VERSION = "0.1.3";
+const PACKAGE_VERSION = "0.1.4";
 
 /*
  * ═══════════════════════════════════════════════════════════════════════════

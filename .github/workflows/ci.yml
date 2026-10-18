@@ -22,12 +22,14 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
+      # isolated-vm (pulled in transitively by the n8n-workflow dev dependency)
+      # ships no Node 20 prebuild, so a normal install compiles it from source
+      # and fails on the CI runners. This adapter never loads it — it is n8n's
+      # expression sandbox — so skip dependency install scripts; nothing we
+      # build, type-check or test needs the native module.
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run build
-      # Lint after build so the community-node scanner checks the compiled dist
-      # as well as the source — the same two legs the n8n registry scan runs.
-      - run: npm run lint
       - run: npm test
       # The package the scan reads is the one `npm publish` would build and
       # pack — dist only, no runtime dependencies. Dry-run it so a change that

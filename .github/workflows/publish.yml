@@ -88,7 +88,11 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
+      # isolated-vm (via the n8n-workflow dev dependency) has no Node 20
+      # prebuild and would compile from source; this node never loads it, so
+      # skip install scripts to keep the publish install from failing. The
+      # publish step below still runs the package's own prepack/prepublishOnly.
+      - run: npm ci --ignore-scripts
       - run: npm run build
       - run: npm test
 

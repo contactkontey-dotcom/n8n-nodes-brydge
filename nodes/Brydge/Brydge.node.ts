@@ -1,5 +1,6 @@
 import {
   NodeApiError,
+  NodeConnectionTypes,
   NodeOperationError,
   type IDataObject,
   type IExecuteFunctions,
@@ -11,7 +12,7 @@ import {
 import { BrydgeClient, BrydgeError, type Facts, type Outcome } from "brydge-core";
 
 /** This package's version, sent to BRYDGE as the integration so its logs can tell the node apart. Kept equal to package.json by a test. */
-const PACKAGE_VERSION = "0.1.2";
+const PACKAGE_VERSION = "0.1.3";
 
 /*
  * ═══════════════════════════════════════════════════════════════════════════
@@ -63,8 +64,8 @@ export class Brydge implements INodeType {
     subtitle: '={{ $parameter["operation"] }}',
     description: "Ask BRYDGE before an agent acts, then check against the destination's own records whether the work happened.",
     defaults: { name: "BRYDGE" },
-    inputs: ['main'],
-    outputs: ['main'],
+    inputs: [NodeConnectionTypes.Main],
+    outputs: [NodeConnectionTypes.Main],
     usableAsTool: true,
     credentials: [{ name: "brydgeApi", required: true }],
     properties: [
@@ -166,12 +167,16 @@ export class Brydge implements INodeType {
           continue;
         }
         /*
-         * Otherwise surface the fault as a thrown n8n error. Our own input
-         * checks already throw NodeOperationError — rethrow those untouched. A
-         * BRYDGE fault becomes a NodeApiError carrying BRYDGE's own message,
-         * HTTP status and reason, so the run's error shows the real cause.
+         * Otherwise surface the fault as a typed n8n error — never re-throw the
+         * raw error, which loses its cause in the n8n UI. An input problem we
+         * already raised stays a NodeOperationError (its constructor returns the
+         * same instance); anything else becomes a NodeApiError carrying BRYDGE's
+         * own message, HTTP status and reason (NodeApiError likewise returns an
+         * existing NodeApiError unchanged).
          */
-        if (error instanceof NodeOperationError || error instanceof NodeApiError) throw error;
+        if (error instanceof NodeOperationError) {
+          throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+        }
         const brydge = BrydgeError.find(error);
         throw new NodeApiError(this.getNode(), (error ?? {}) as JsonObject, {
           itemIndex: i,

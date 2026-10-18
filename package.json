@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-brydge",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "n8n community node for BRYDGE: ask before an agent acts, then check against the destination's own records whether the work happened.",
   "keywords": [
     "n8n-community-node-package",
@@ -30,7 +30,7 @@
   "scripts": {
     "build": "tsup && node scripts/copy-icons.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint -c .eslintrc.json \"credentials/**/*.ts\" \"nodes/**/*.ts\" package.json",
+    "lint": "node scripts/scan.mjs",
     "test": "vitest run tests/unit",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck && npm run lint && npm test"
@@ -51,12 +51,9 @@
     "n8n-workflow": "*"
   },
   "devDependencies": {
+    "@n8n/scan-community-package": "^0.39.0",
     "@types/node": "^22.20.4",
-    "@typescript-eslint/parser": "^8.46.0",
     "brydge-core": "^0.1.0",
-    "eslint": "^8.57.1",
-    "eslint-plugin-n8n-nodes-base": "^2.0.0",
-    "jsonc-eslint-parser": "^2.4.0",
     "n8n-workflow": "^2.16.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
